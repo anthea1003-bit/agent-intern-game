@@ -38,7 +38,7 @@
             </h1>
             <p class="intro-lede">
               你只有 <strong>1,000 Token</strong>，要監督一位熱情過頭的 AI
-              實習生完成三分鐘讀書會簡報。
+              實習生。但這次要拚速度、品質，還是安全？開局才會揭曉。
             </p>
 
             <div class="mission-docket" aria-label="遊戲規則">
@@ -48,16 +48,16 @@
               </div>
               <div>
                 <span class="docket-icon" aria-hidden="true">🛡</span>
-                <p><strong>守住三條線</strong><small>成本、成果、工具安全</small></p>
+                <p><strong>只有兩次護欄</strong><small>五個事件，不能每次都選最保守</small></p>
               </div>
               <div>
-                <span class="docket-icon" aria-hidden="true">🛑</span>
-                <p><strong>隨時喊停</strong><small>但停太早，任務也不會完成</small></p>
+                <span class="docket-icon" aria-hidden="true">🎯</span>
+                <p><strong>三種勝利條件</strong><small>同一個答案，換個任務可能就失敗</small></p>
               </div>
             </div>
 
             <button class="primary-cta" id="start-button" type="button">
-              <span>開始監工</span>
+              <span>抽取任務</span>
               <span class="cta-arrow" aria-hidden="true">→</span>
             </button>
             <p class="microcopy">全程約 2 分鐘 · 不會真的呼叫 API 或消耗 Token</p>
@@ -84,14 +84,42 @@
           </div>
         </section>
 
+        <dialog class="mission-dialog" id="mission-dialog" aria-labelledby="mission-dialog-title">
+          <div class="mission-brief-card">
+            <button class="dialog-close" id="mission-close" type="button" aria-label="關閉任務簡報">×</button>
+            <p class="mission-stamp">CLASSIFIED · 任務已抽出</p>
+            <div class="mission-reveal-icon" id="mission-reveal-icon" aria-hidden="true">⚡</div>
+            <p class="mission-codename" id="mission-codename">DEADLINE MODE</p>
+            <h2 id="mission-dialog-title">今晚緊急 Demo</h2>
+            <p class="mission-brief" id="mission-brief"></p>
+            <div class="mission-thresholds" aria-label="本局過關門檻">
+              <div><span>🔥 剩餘 Token</span><strong id="brief-token-target">≥ 250</strong></div>
+              <div><span>🚀 任務進度</span><strong id="brief-progress-target">≥ 85%</strong></div>
+              <div><span>💎 成果品質</span><strong id="brief-quality-target">≥ 68%</strong></div>
+              <div><span>🛡 工具安全</span><strong id="brief-safety-target">≥ 35%</strong></div>
+            </div>
+            <div class="control-warning">
+              <span aria-hidden="true">🔐</span>
+              <p><strong>你只有 2 次護欄介入</strong><small>用完之後，Agent 必須靠前面累積的狀態自行決策。</small></p>
+            </div>
+            <button class="primary-cta mission-accept" id="mission-accept" type="button">
+              <span>接受任務</span><span class="cta-arrow" aria-hidden="true">→</span>
+            </button>
+          </div>
+        </dialog>
+
         <section class="screen game-screen" id="game-screen" aria-labelledby="event-title" hidden>
           <div class="game-hud" aria-label="任務狀態">
             <div class="mission-chip">
-              <span>目前任務</span>
-              <strong>完成 Day 2 三分鐘分享</strong>
+              <div class="mission-chip-copy">
+                <span id="mission-mode">目前任務</span>
+                <strong id="mission-name">完成 Day 2 三分鐘分享</strong>
+              </div>
+              <div class="control-charges" id="control-charges" aria-label="剩餘護欄介入次數"></div>
             </div>
             <div class="hud-meter token-meter">
               <div class="meter-label"><span>🔥 TOKEN 油箱</span><strong id="token-value">1,000</strong></div>
+              <small class="meter-target" id="token-target">門檻 ≥ 250</small>
               <div
                 class="meter-track"
                 id="token-meter"
@@ -104,6 +132,7 @@
             </div>
             <div class="hud-meter">
               <div class="meter-label"><span>🚀 任務進度</span><strong id="progress-value">6%</strong></div>
+              <small class="meter-target" id="progress-target">門檻 ≥ 85%</small>
               <div
                 class="meter-track progress-track"
                 id="progress-meter"
@@ -115,7 +144,21 @@
               ><span></span></div>
             </div>
             <div class="hud-meter">
+              <div class="meter-label"><span>💎 成果品質</span><strong id="quality-value">45%</strong></div>
+              <small class="meter-target" id="quality-target">門檻 ≥ 68%</small>
+              <div
+                class="meter-track quality-track"
+                id="quality-meter"
+                role="progressbar"
+                aria-label="成果品質"
+                aria-valuemin="0"
+                aria-valuemax="100"
+                aria-valuenow="45"
+              ><span></span></div>
+            </div>
+            <div class="hud-meter">
               <div class="meter-label"><span>🛡 安全護欄</span><strong id="safety-value">55%</strong></div>
+              <small class="meter-target" id="safety-target">門檻 ≥ 35%</small>
               <div
                 class="meter-track safety-track"
                 id="safety-meter"
@@ -186,16 +229,18 @@
             <div class="result-glow" aria-hidden="true"></div>
             <div class="result-medal" id="ending-icon" aria-hidden="true">🏆</div>
             <p class="overline"><span>MISSION REPORT</span> 你的監工結果</p>
+            <div class="result-mission" id="result-mission">⚡ 今晚緊急 Demo · 進度優先</div>
             <h2 id="ending-title">Agent Whisperer</h2>
+            <p class="mission-score" id="mission-score">任務分數 86</p>
             <p class="ending-kicker" id="ending-kicker"></p>
             <p class="ending-description" id="ending-description"></p>
           </div>
 
           <div class="score-grid" aria-label="最終分數">
-            <div><span>剩餘 Token</span><strong id="final-tokens">590</strong><small>/ 1,000</small></div>
-            <div><span>任務進度</span><strong id="final-progress">92%</strong><small>DONE</small></div>
-            <div><span>成果品質</span><strong id="final-quality">97%</strong><small>QUALITY</small></div>
-            <div><span>安全護欄</span><strong id="final-safety">100%</strong><small>SAFETY</small></div>
+            <div data-metric="tokens"><span>剩餘 Token</span><strong id="final-tokens">590</strong><small id="final-token-target">門檻 ≥ 250</small></div>
+            <div data-metric="progress"><span>任務進度</span><strong id="final-progress">92%</strong><small id="final-progress-target">門檻 ≥ 85%</small></div>
+            <div data-metric="quality"><span>成果品質</span><strong id="final-quality">97%</strong><small id="final-quality-target">門檻 ≥ 68%</small></div>
+            <div data-metric="safety"><span>工具安全</span><strong id="final-safety">100%</strong><small id="final-safety-target">門檻 ≥ 35%</small></div>
           </div>
 
           <div class="lesson-card">

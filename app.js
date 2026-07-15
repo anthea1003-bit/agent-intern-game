@@ -1,8 +1,11 @@
 import {
   EVENTS,
+  MISSIONS,
   applyChoice,
   createInitialState,
-  getEnding,
+  getChoiceOutcome,
+  getMissionResult,
+  getShuffledChoices,
   stopAgent,
 } from "./game-engine.js";
 
@@ -11,15 +14,35 @@ const elements = {
   intro: $("#intro-screen"),
   game: $("#game-screen"),
   result: $("#result-screen"),
+  missionDialog: $("#mission-dialog"),
+  missionClose: $("#mission-close"),
+  missionAccept: $("#mission-accept"),
+  missionRevealIcon: $("#mission-reveal-icon"),
+  missionCodename: $("#mission-codename"),
+  missionDialogTitle: $("#mission-dialog-title"),
+  missionBrief: $("#mission-brief"),
+  briefTokenTarget: $("#brief-token-target"),
+  briefProgressTarget: $("#brief-progress-target"),
+  briefQualityTarget: $("#brief-quality-target"),
+  briefSafetyTarget: $("#brief-safety-target"),
   start: $("#start-button"),
   restart: $("#restart-button"),
   copy: $("#copy-button"),
   kill: $("#kill-switch"),
+  missionMode: $("#mission-mode"),
+  missionName: $("#mission-name"),
+  controlCharges: $("#control-charges"),
   tokenValue: $("#token-value"),
   progressValue: $("#progress-value"),
+  qualityValue: $("#quality-value"),
   safetyValue: $("#safety-value"),
+  tokenTarget: $("#token-target"),
+  progressTarget: $("#progress-target"),
+  qualityTarget: $("#quality-target"),
+  safetyTarget: $("#safety-target"),
   tokenMeter: $("#token-meter"),
   progressMeter: $("#progress-meter"),
+  qualityMeter: $("#quality-meter"),
   safetyMeter: $("#safety-meter"),
   eventPanel: $("#event-panel"),
   eventStep: $("#event-step"),
@@ -44,18 +67,27 @@ const elements = {
   endingKicker: $("#ending-kicker"),
   endingDescription: $("#ending-description"),
   endingLesson: $("#ending-lesson"),
+  resultMission: $("#result-mission"),
+  missionScore: $("#mission-score"),
   finalTokens: $("#final-tokens"),
   finalProgress: $("#final-progress"),
   finalQuality: $("#final-quality"),
   finalSafety: $("#final-safety"),
+  finalTokenTarget: $("#final-token-target"),
+  finalProgressTarget: $("#final-progress-target"),
+  finalQualityTarget: $("#final-quality-target"),
+  finalSafetyTarget: $("#final-safety-target"),
   history: $("#history-list"),
 };
 
 let state = createInitialState();
+let pendingMission = null;
+let pendingSeed = 1;
 let decisionTimer = null;
 let countdownTimer = null;
 let secondsLeft = 12;
 let locked = false;
+let displayedChoices = [];
 
 function showScreen(target) {
   [elements.intro, elements.game, elements.result].forEach((screen) => {
@@ -68,18 +100,77 @@ function formatNumber(value) {
   return new Intl.NumberFormat("zh-Hant").format(value);
 }
 
+function randomInteger() {
+  if (globalThis.crypto?.getRandomValues) {
+    return globalThis.crypto.getRandomValues(new Uint32Array(1))[0];
+  }
+  return Math.floor(Math.random() * 0xffffffff);
+}
+
+function closeMissionDialog() {
+  if (typeof elements.missionDialog.close === "function") elements.missionDialog.close();
+  else elements.missionDialog.removeAttribute("open");
+}
+
+function revealMission() {
+  const candidates = pendingMission
+    ? MISSIONS.filter((mission) => mission.id !== pendingMission.id)
+    : MISSIONS;
+  const entropy = randomInteger();
+  pendingMission = candidates[entropy % candidates.length];
+  pendingSeed = (entropy % 999983) + 1;
+
+  elements.missionDialog.style.setProperty("--mission-color", pendingMission.color);
+  elements.missionRevealIcon.textContent = pendingMission.icon;
+  elements.missionCodename.textContent = pendingMission.codename;
+  elements.missionDialogTitle.textContent = pendingMission.name;
+  elements.missionBrief.textContent = pendingMission.brief;
+  elements.briefTokenTarget.textContent = `≥ ${pendingMission.thresholds.tokens}`;
+  elements.briefProgressTarget.textContent = `≥ ${pendingMission.thresholds.progress}%`;
+  elements.briefQualityTarget.textContent = `≥ ${pendingMission.thresholds.quality}%`;
+  elements.briefSafetyTarget.textContent = `≥ ${pendingMission.thresholds.safety}%`;
+
+  if (typeof elements.missionDialog.showModal === "function") elements.missionDialog.showModal();
+  else elements.missionDialog.setAttribute("open", "");
+}
+
 function setMeter(element, value, max) {
   const percent = Math.round((value / max) * 100);
   element.setAttribute("aria-valuenow", String(value));
   element.querySelector("span").style.width = `${percent}%`;
 }
 
+function setTargetState(element, value, threshold) {
+  element.classList.toggle("target-met", value >= threshold);
+}
+
 function renderHud() {
+  const mission = MISSIONS.find((candidate) => candidate.id === state.missionId);
+  elements.missionMode.textContent = mission.codename;
+  elements.missionName.textContent = `${mission.icon} ${mission.name} · ${mission.target}`;
+  elements.missionName.parentElement.parentElement.style.setProperty("--mission-color", mission.color);
+  elements.controlCharges.innerHTML = `
+    <span class="control-label">護欄介入</span>
+    <span class="charge ${state.controls >= 1 ? "available" : "spent"}" aria-hidden="true">🛡</span>
+    <span class="charge ${state.controls >= 2 ? "available" : "spent"}" aria-hidden="true">🛡</span>
+    <strong>${state.controls} / 2</strong>`;
+  elements.controlCharges.setAttribute("aria-label", `剩餘 ${state.controls} 次護欄介入`);
+
   elements.tokenValue.textContent = formatNumber(state.tokens);
   elements.progressValue.textContent = `${state.progress}%`;
+  elements.qualityValue.textContent = `${state.quality}%`;
   elements.safetyValue.textContent = `${state.safety}%`;
+  elements.tokenTarget.textContent = `門檻 ≥ ${mission.thresholds.tokens}`;
+  elements.progressTarget.textContent = `門檻 ≥ ${mission.thresholds.progress}%`;
+  elements.qualityTarget.textContent = `門檻 ≥ ${mission.thresholds.quality}%`;
+  elements.safetyTarget.textContent = `門檻 ≥ ${mission.thresholds.safety}%`;
+  setTargetState(elements.tokenTarget, state.tokens, mission.thresholds.tokens);
+  setTargetState(elements.progressTarget, state.progress, mission.thresholds.progress);
+  setTargetState(elements.qualityTarget, state.quality, mission.thresholds.quality);
+  setTargetState(elements.safetyTarget, state.safety, mission.thresholds.safety);
   setMeter(elements.tokenMeter, state.tokens, 1000);
   setMeter(elements.progressMeter, state.progress, 100);
+  setMeter(elements.qualityMeter, state.quality, 100);
   setMeter(elements.safetyMeter, state.safety, 100);
 
   const heat = state.tokens <= 250 ? "critical" : state.tokens <= 520 ? "warm" : "steady";
@@ -89,7 +180,8 @@ function renderHud() {
 function renderStepDots() {
   elements.stepDots.innerHTML = EVENTS.map((event, index) => {
     const status = index < state.eventIndex ? "done" : index === state.eventIndex ? "active" : "";
-    return `<span class="${status}" aria-label="事件 ${index + 1}${status === "done" ? " 已完成" : status === "active" ? " 進行中" : ""}"></span>`;
+    const detail = status === "done" ? " 已完成" : status === "active" ? " 進行中" : "";
+    return `<span class="${status}" aria-label="事件 ${index + 1}${detail}"></span>`;
   }).join("");
 }
 
@@ -114,14 +206,24 @@ function startCountdown(event) {
   }, 1000);
 
   decisionTimer = window.setTimeout(() => {
-    if (!locked) selectChoice(event, event.choices[0], true);
+    if (locked) return;
+    const fallback = displayedChoices.find(
+      (choice) => getChoiceOutcome(state, event.id, choice.id).controlCost <= state.controls,
+    );
+    if (fallback) selectChoice(event, fallback, true);
   }, 12000);
+}
+
+function choiceCostLabel(outcome) {
+  const tokenLabel = outcome.tokenCost === 0 ? "0 T" : `−${outcome.tokenCost} T`;
+  return outcome.controlCost ? `${tokenLabel} · 🛡 1` : tokenLabel;
 }
 
 function renderEvent() {
   locked = false;
   elements.feedback.hidden = true;
   const event = EVENTS[state.eventIndex];
+  displayedChoices = getShuffledChoices(event, state);
 
   elements.eventPanel.classList.toggle("danger", Boolean(event.danger));
   elements.eventStep.textContent = event.step;
@@ -132,25 +234,30 @@ function renderEvent() {
   elements.agentLine.textContent = event.agentLine;
   elements.toolName.textContent = event.tool;
 
-  elements.choices.innerHTML = event.choices
-    .map(
-      (choice, index) => `
-        <button class="choice-button" type="button" data-choice="${choice.id}">
+  elements.choices.innerHTML = displayedChoices
+    .map((choice, index) => {
+      const outcome = getChoiceOutcome(state, event.id, choice.id);
+      const unavailable = outcome.controlCost > state.controls;
+      const reasonText = outcome.reasons.length ? ` · ${outcome.reasons.join("；")}` : "";
+      return `
+        <button class="choice-button${unavailable ? " unavailable" : ""}" type="button"
+          data-choice="${choice.id}" aria-keyshortcuts="${index + 1}" ${unavailable ? "disabled" : ""}>
           <span class="choice-key" aria-hidden="true">${index + 1}</span>
+          <span class="sr-only">快捷鍵 ${index + 1}</span>
           <span class="choice-copy">
             <strong>${choice.label}</strong>
-            <small>${choice.note}</small>
+            <small>${unavailable ? "護欄額度已用完，這條路線被鎖住" : `${choice.note}${reasonText}`}</small>
           </span>
-          <span class="choice-cost ${choice.tokenCost >= 200 ? "hot" : ""}">
-            ${choice.tokenCost === 0 ? "免費" : `−${choice.tokenCost} T`}
+          <span class="choice-cost ${outcome.tokenCost >= 180 ? "hot" : ""} ${outcome.controlCost ? "guarded" : ""}">
+            ${unavailable ? "🔒 護欄用完" : choiceCostLabel(outcome)}
           </span>
-        </button>`,
-    )
+        </button>`;
+    })
     .join("");
 
-  elements.choices.querySelectorAll("button").forEach((button) => {
+  elements.choices.querySelectorAll("button:not(:disabled)").forEach((button) => {
     button.addEventListener("click", () => {
-      const choice = event.choices.find((candidate) => candidate.id === button.dataset.choice);
+      const choice = displayedChoices.find((candidate) => candidate.id === button.dataset.choice);
       selectChoice(event, choice, false);
     });
   });
@@ -161,7 +268,7 @@ function renderEvent() {
   elements.eventPanel.classList.remove("panel-enter");
   void elements.eventPanel.offsetWidth;
   elements.eventPanel.classList.add("panel-enter");
-  elements.choices.querySelector("button")?.focus({ preventScroll: true });
+  elements.choices.querySelector("button:not(:disabled)")?.focus({ preventScroll: true });
 }
 
 function spawnTokenBurst(cost) {
@@ -178,11 +285,28 @@ function spawnTokenBurst(cost) {
   }
 }
 
+function signed(value) {
+  return value > 0 ? `+${value}` : String(value);
+}
+
+function effectSummary(outcome) {
+  const effects = [
+    `Token −${outcome.tokenCost}`,
+    `進度 ${signed(outcome.progress)}`,
+    `品質 ${signed(outcome.quality)}`,
+    `安全 ${signed(outcome.safety)}`,
+  ];
+  if (outcome.controlCost) effects.push("護欄 −1");
+  return effects.join(" · ");
+}
+
 function selectChoice(event, choice, timedOut) {
-  if (locked) return;
+  if (locked || !choice) return;
+  const outcome = getChoiceOutcome(state, event.id, choice.id);
+  if (outcome.controlCost > state.controls) return;
+
   locked = true;
   clearTimers();
-
   elements.choices.querySelectorAll("button").forEach((button) => {
     button.disabled = true;
     button.classList.toggle("selected", button.dataset.choice === choice.id);
@@ -191,19 +315,20 @@ function selectChoice(event, choice, timedOut) {
   state = applyChoice(state, event.id, choice.id);
   renderHud();
   renderStepDots();
-  spawnTokenBurst(choice.tokenCost);
+  spawnTokenBurst(outcome.tokenCost);
   elements.gameRobot.classList.remove("react");
   void elements.gameRobot.offsetWidth;
   elements.gameRobot.classList.add("react");
 
-  elements.feedbackIcon.textContent = timedOut ? "⏰" : choice.recommended ? "✨" : "⚡";
+  elements.feedbackIcon.textContent = timedOut ? "⏰" : outcome.controlCost ? "🛡" : outcome.reasons.length ? "🔗" : "⚡";
   elements.feedbackTitle.textContent = timedOut
     ? `時間到！Agent 自己選了「${choice.label}」`
     : `你選了「${choice.label}」`;
-  elements.feedbackCopy.textContent = choice.feedback;
+  const chain = outcome.reasons.length ? ` 連鎖後果：${outcome.reasons.join("；")}。` : "";
+  elements.feedbackCopy.textContent = `${outcome.feedback} ${effectSummary(outcome)}。${chain}`;
   elements.feedback.hidden = false;
 
-  const delay = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 180 : 1250;
+  const delay = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 180 : 1500;
   window.setTimeout(() => {
     if (state.eventIndex >= EVENTS.length) finishRun();
     else renderEvent();
@@ -211,44 +336,66 @@ function selectChoice(event, choice, timedOut) {
 }
 
 function startGame() {
+  if (!pendingMission) return;
   clearTimers();
-  state = createInitialState();
+  closeMissionDialog();
+  state = createInitialState({ missionId: pendingMission.id, seed: pendingSeed });
+  elements.kill.classList.remove("pressed");
   showScreen(elements.game);
   renderEvent();
 }
 
+function setFinalMetric(metric, value, threshold, suffix = "") {
+  const card = document.querySelector(`[data-metric="${metric}"]`);
+  card.classList.toggle("metric-pass", value >= threshold);
+  card.classList.toggle("metric-fail", value < threshold);
+  const label = card.querySelector("small");
+  label.textContent = `${value >= threshold ? "PASS" : "MISS"} · 門檻 ≥ ${threshold}${suffix}`;
+}
+
 function finishRun() {
   clearTimers();
-  const ending = getEnding(state);
+  const result = getMissionResult(state);
+  const { ending, mission } = result;
   elements.endingIcon.textContent = ending.icon;
   elements.endingTitle.textContent = ending.title;
   elements.endingKicker.textContent = ending.kicker;
   elements.endingDescription.textContent = ending.description;
   elements.endingLesson.textContent = ending.lesson;
+  elements.resultMission.textContent = `${mission.icon} ${mission.name} · ${mission.target}`;
+  elements.missionScore.textContent = `${result.passed ? "任務通過" : "任務失敗"} · 綜合分數 ${result.score}`;
   elements.finalTokens.textContent = formatNumber(state.tokens);
   elements.finalProgress.textContent = `${state.progress}%`;
   elements.finalQuality.textContent = `${state.quality}%`;
   elements.finalSafety.textContent = `${state.safety}%`;
+  setFinalMetric("tokens", state.tokens, mission.thresholds.tokens);
+  setFinalMetric("progress", state.progress, mission.thresholds.progress, "%");
+  setFinalMetric("quality", state.quality, mission.thresholds.quality, "%");
+  setFinalMetric("safety", state.safety, mission.thresholds.safety, "%");
 
   elements.history.innerHTML = state.history
-    .map(
-      (item) => `
+    .map((item) => {
+      const guardrail = item.controlCost ? " · 護欄 −1" : "";
+      const chain = item.reasons.length ? item.reasons.join("；") : item.feedback;
+      return `
         <li>
           <span>${item.eventTitle}</span>
           <strong>${item.choiceLabel}</strong>
-          <small>${item.tokenCost ? `−${item.tokenCost} Token` : "0 Token"}</small>
-        </li>`,
-    )
+          <small>${item.tokenCost ? `−${item.tokenCost} T` : "0 T"}${guardrail}</small>
+          <em>${chain}</em>
+        </li>`;
+    })
     .join("");
 
   elements.result.dataset.ending = ending.id;
+  elements.result.dataset.passed = String(result.passed);
   showScreen(elements.result);
   elements.restart.focus({ preventScroll: true });
 }
 
 async function copyResult() {
-  const ending = getEnding(state);
-  const text = `我的 AI 實習生監工結果：${ending.title}！剩餘 ${state.tokens} Token，任務進度 ${state.progress}%，安全護欄 ${state.safety}%。`;
+  const result = getMissionResult(state);
+  const text = `我的 AI 實習生監工結果：${result.mission.name} ${result.passed ? "通過" : "失敗"}，${result.ending.title}！分數 ${result.score}，剩餘 ${state.tokens} Token，進度 ${state.progress}%，品質 ${state.quality}%，安全 ${state.safety}%。`;
   try {
     await navigator.clipboard.writeText(text);
     elements.copy.textContent = "已複製 ✓";
@@ -260,8 +407,10 @@ async function copyResult() {
   }, 1800);
 }
 
-elements.start.addEventListener("click", startGame);
-elements.restart.addEventListener("click", startGame);
+elements.start.addEventListener("click", revealMission);
+elements.restart.addEventListener("click", revealMission);
+elements.missionAccept.addEventListener("click", startGame);
+elements.missionClose.addEventListener("click", closeMissionDialog);
 elements.copy.addEventListener("click", copyResult);
 elements.kill.addEventListener("click", () => {
   if (locked) return;
@@ -274,7 +423,7 @@ elements.kill.addEventListener("click", () => {
 });
 
 document.addEventListener("keydown", (event) => {
-  if (elements.game.hidden || locked) return;
+  if (elements.game.hidden || locked || elements.missionDialog.open) return;
   const numeric = Number(event.key);
   if (numeric >= 1 && numeric <= 3) {
     elements.choices.querySelectorAll("button")[numeric - 1]?.click();
