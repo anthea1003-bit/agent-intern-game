@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="一場關於 AI Agent 成本、迴圈、工具權限與終止條件的三分鐘互動遊戲。"
+    />
+    <meta name="theme-color" content="#102f3a" />
+    <title>AI 實習生失控記｜Agent 成本生存遊戲</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2285%22>🤖</text></svg>" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="topbar" aria-label="遊戲資訊">
+        <a class="brand" href="#" aria-label="AI 實習生失控記首頁">
+          <span class="brand-mark" aria-hidden="true">A!</span>
+          <span>
+            <strong>AGENT CONTROL ROOM</strong>
+            <small>KaggleX · Day 2</small>
+          </span>
+        </a>
+        <div class="topbar-note">
+          <span class="status-dot" aria-hidden="true"></span>
+          訓練模擬器已上線
+        </div>
+      </header>
+
+      <main id="app">
+        <section class="screen intro-screen" id="intro-screen" aria-labelledby="intro-title">
+          <div class="intro-copy">
+            <p class="overline"><span>MISSION 01</span> AI AGENT 生存訓練</p>
+            <h1 id="intro-title">
+              AI 實習生<br />
+              <span>失控記</span>
+            </h1>
+            <p class="intro-lede">
+              你只有 <strong>1,000 Token</strong>，要監督一位熱情過頭的 AI
+              實習生完成三分鐘讀書會簡報。
+            </p>
+
+            <div class="mission-docket" aria-label="遊戲規則">
+              <div>
+                <span class="docket-icon" aria-hidden="true">⏱</span>
+                <p><strong>12 秒決策</strong><small>猶豫太久，Agent 會自己選</small></p>
+              </div>
+              <div>
+                <span class="docket-icon" aria-hidden="true">🛡</span>
+                <p><strong>守住三條線</strong><small>成本、成果、工具安全</small></p>
+              </div>
+              <div>
+                <span class="docket-icon" aria-hidden="true">🛑</span>
+                <p><strong>隨時喊停</strong><small>但停太早，任務也不會完成</small></p>
+              </div>
+            </div>
+
+            <button class="primary-cta" id="start-button" type="button">
+              <span>開始監工</span>
+              <span class="cta-arrow" aria-hidden="true">→</span>
+            </button>
+            <p class="microcopy">全程約 2 分鐘 · 不會真的呼叫 API 或消耗 Token</p>
+          </div>
+
+          <div class="hero-stage" aria-label="抱著大量文件奔跑的 AI 實習生">
+            <div class="sun-orb" aria-hidden="true"></div>
+            <div class="hero-bubble bubble-one" aria-hidden="true">再查一篇就好！</div>
+            <div class="hero-bubble bubble-two" aria-hidden="true">RETRY × 6</div>
+            <div class="token token-one" aria-hidden="true">T</div>
+            <div class="token token-two" aria-hidden="true">T</div>
+            <div class="token token-three" aria-hidden="true">T</div>
+            <img
+              class="hero-robot"
+              src="assets/ai-intern.png"
+              alt="一位抱著堆積如山文件、充滿幹勁的原創 AI 實習生機器人"
+            />
+            <div class="stage-plinth" aria-hidden="true"></div>
+            <div class="token-tag" aria-hidden="true">
+              <span>預算</span>
+              <strong>1,000</strong>
+              <small>TOKEN</small>
+            </div>
+          </div>
+        </section>
+
+        <section class="screen game-screen" id="game-screen" aria-labelledby="event-title" hidden>
+          <div class="game-hud" aria-label="任務狀態">
+            <div class="mission-chip">
+              <span>目前任務</span>
+              <strong>完成 Day 2 三分鐘分享</strong>
+            </div>
+            <div class="hud-meter token-meter">
+              <div class="meter-label"><span>🔥 TOKEN 油箱</span><strong id="token-value">1,000</strong></div>
+              <div
+                class="meter-track"
+                id="token-meter"
+                role="progressbar"
+                aria-label="Token 剩餘"
+                aria-valuemin="0"
+                aria-valuemax="1000"
+                aria-valuenow="1000"
+              ><span></span></div>
+            </div>
+            <div class="hud-meter">
+              <div class="meter-label"><span>🚀 任務進度</span><strong id="progress-value">6%</strong></div>
+              <div
+                class="meter-track progress-track"
+                id="progress-meter"
+                role="progressbar"
+                aria-label="任務進度"
+                aria-valuemin="0"
+                aria-valuemax="100"
+                aria-valuenow="6"
+              ><span></span></div>
+            </div>
+            <div class="hud-meter">
+              <div class="meter-label"><span>🛡 安全護欄</span><strong id="safety-value">55%</strong></div>
+              <div
+                class="meter-track safety-track"
+                id="safety-meter"
+                role="progressbar"
+                aria-label="安全護欄"
+                aria-valuemin="0"
+                aria-valuemax="100"
+                aria-valuenow="55"
+              ><span></span></div>
+            </div>
+          </div>
+
+          <div class="game-layout">
+            <div class="agent-stage" id="agent-stage">
+              <div class="stage-grid" aria-hidden="true"></div>
+              <div class="loop-ring ring-one" aria-hidden="true"></div>
+              <div class="loop-ring ring-two" aria-hidden="true"></div>
+              <div class="smoke smoke-one" aria-hidden="true"></div>
+              <div class="smoke smoke-two" aria-hidden="true"></div>
+              <div class="speech-bubble" id="agent-line" aria-live="polite"></div>
+              <img
+                class="game-robot"
+                id="game-robot"
+                src="assets/ai-intern.png"
+                alt="正在執行任務的 AI 實習生"
+              />
+              <div class="tool-readout">
+                <span class="tool-pulse" aria-hidden="true"></span>
+                <span>正在使用</span>
+                <strong id="tool-name">文件讀取器</strong>
+              </div>
+              <div class="stage-caption"><span>A-01</span> AUTONOMOUS INTERN</div>
+            </div>
+
+            <article class="event-panel" id="event-panel">
+              <div class="event-topline">
+                <p><span id="event-step">01</span> / 05</p>
+                <div class="countdown" aria-label="決策剩餘時間">
+                  <span id="countdown-text">12 秒</span>
+                  <div class="countdown-track"><span id="countdown-fill"></span></div>
+                </div>
+              </div>
+              <p class="event-eyebrow" id="event-eyebrow">CONTEXT WINDOW</p>
+              <div class="event-heading">
+                <span class="event-icon" id="event-icon" aria-hidden="true">📚</span>
+                <h2 id="event-title">白皮書有 180 頁！</h2>
+              </div>
+              <p class="event-prompt" id="event-prompt"></p>
+              <div class="choice-list" id="choice-list" aria-label="選擇你的處理方式"></div>
+              <div class="feedback-card" id="feedback-card" aria-live="assertive" hidden>
+                <span id="feedback-icon" aria-hidden="true">⚡</span>
+                <div><strong id="feedback-title"></strong><p id="feedback-copy"></p></div>
+              </div>
+            </article>
+          </div>
+
+          <div class="game-footer">
+            <div class="step-dots" id="step-dots" aria-label="事件進度"></div>
+            <button class="kill-switch" id="kill-switch" type="button">
+              <span class="kill-light" aria-hidden="true"></span>
+              緊急終止 AGENT
+            </button>
+          </div>
+        </section>
+
+        <section class="screen result-screen" id="result-screen" aria-labelledby="ending-title" hidden>
+          <div class="result-hero">
+            <div class="result-glow" aria-hidden="true"></div>
+            <div class="result-medal" id="ending-icon" aria-hidden="true">🏆</div>
+            <p class="overline"><span>MISSION REPORT</span> 你的監工結果</p>
+            <h2 id="ending-title">Agent Whisperer</h2>
+            <p class="ending-kicker" id="ending-kicker"></p>
+            <p class="ending-description" id="ending-description"></p>
+          </div>
+
+          <div class="score-grid" aria-label="最終分數">
+            <div><span>剩餘 Token</span><strong id="final-tokens">590</strong><small>/ 1,000</small></div>
+            <div><span>任務進度</span><strong id="final-progress">92%</strong><small>DONE</small></div>
+            <div><span>成果品質</span><strong id="final-quality">97%</strong><small>QUALITY</small></div>
+            <div><span>安全護欄</span><strong id="final-safety">100%</strong><small>SAFETY</small></div>
+          </div>
+
+          <div class="lesson-card">
+            <span class="lesson-label">你剛剛學到</span>
+            <blockquote id="ending-lesson"></blockquote>
+            <div class="lesson-pills">
+              <span>限定 Context</span><span>Max iterations</span><span>Tool permissions</span>
+            </div>
+          </div>
+
+          <details class="decision-log">
+            <summary>查看我的 Agent 決策紀錄 <span aria-hidden="true">＋</span></summary>
+            <ol id="history-list"></ol>
+          </details>
+
+          <div class="result-actions">
+            <button class="secondary-cta" id="copy-button" type="button">複製結果</button>
+            <button class="primary-cta compact" id="restart-button" type="button">
+              再監工一次 <span class="cta-arrow" aria-hidden="true">↻</span>
+            </button>
+          </div>
+        </section>
+      </main>
+
+      <footer class="site-footer">
+        <span>AI AGENT COST CONTROL LAB</span>
+        <span>模型＋工具＋迴圈＋護欄</span>
+      </footer>
+    </div>
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
