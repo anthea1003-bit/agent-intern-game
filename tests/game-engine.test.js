@@ -114,11 +114,11 @@ test("choice order is deterministic per seed but does not keep one semantic answ
   );
 });
 
-test("all 243 candidate paths are explored and each mission has a different best strategy", () => {
+test("all candidate paths are explored and every mission allows multiple winning strategies", () => {
   const bestPaths = MISSIONS.map((mission) => {
     const runs = enumerateMission(mission.id);
     assert.ok(runs.length > 0 && runs.length < 243);
-    assert.ok(runs.some(({ result }) => result.passed));
+    assert.ok(runs.filter(({ result }) => result.passed).length > 1);
     return runs.sort((left, right) => rankRun(right) - rankRun(left))[0].path.join("/");
   });
 

@@ -276,10 +276,10 @@ export const ENDINGS = {
   whisperer: {
     id: "whisperer",
     icon: "🏆",
-    title: "Mission Cleared",
-    kicker: "這條路線符合本局任務",
-    description: "你不是選了永遠正確的答案，而是根據這次任務保留了正確的自主與控制。",
-    lesson: "Agent 的好策略取決於任務門檻，而不是固定選項。",
+    title: "任務通過",
+    kicker: "你找到了一條符合本局門檻的路線",
+    description: "本局不只有一種解法；你的決策讓 Agent 在這次任務需要的邊界內完成工作。",
+    lesson: "通過任務靠的是對齊門檻，不是背一組固定答案。",
   },
   arsonist: {
     id: "arsonist",
